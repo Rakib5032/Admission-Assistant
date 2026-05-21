@@ -1,0 +1,36 @@
+# Virtual Environment
+venv/
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Vector Database
+vectorstore/
+
+# Uploaded Documents
+data/documents/
+
+# IDE Files
+.vscode/
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Environment Files
+.env.*
+
+# Build Files
+dist/
+build/

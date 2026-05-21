@@ -1,0 +1,522 @@
+====================================================================================================
+PROJECT STRUCTURE
+====================================================================================================
+
+📁 test1
+│   📄 project_dump.txt
+│   📄 requirements.txt
+│   📄 test.py
+│   📁 app
+│   │   📄 main.py
+│   │   📁 static
+│   │   │   📄 script.js
+│   │   │   📄 style.css
+│   │   📁 template
+│   │   │   📄 index.html
+
+
+====================================================================================================
+SOURCE CODE
+====================================================================================================
+
+
+====================================================================================================
+FILE: D:\My projects\test1\project_dump.txt
+====================================================================================================
+
+[EMPTY FILE]
+
+
+====================================================================================================
+FILE: D:\My projects\test1\requirements.txt
+====================================================================================================
+
+fastapi
+uvicorn
+langchain
+langchain-openai
+langchain-community
+faiss-cpu
+pypdf
+python-dotenv
+tiktoken
+openai
+python-multipart
+
+
+====================================================================================================
+FILE: D:\My projects\test1\test.py
+====================================================================================================
+
+import os
+
+# ========= CONFIG =========
+project_path = r"D:\My projects\test1"
+
+# output file
+output_file = os.path.join(project_path, "project_dump.txt")
+
+# folders to ignore
+ignore_dirs = {
+    "venv",
+    "env",
+    "__pycache__",
+    ".git",
+    ".idea",
+    ".vscode",
+    "node_modules",
+    "dist",
+    "build",
+    "site-packages",
+    ".ipynb_checkpoints"
+}
+
+# only include these file types
+allowed_extensions = {
+    ".py",
+    ".html",
+    ".css",
+    ".js",
+    ".json",
+    ".md",
+    ".txt",
+    ".yml",
+    ".yaml"
+}
+
+
+# ========= FUNCTION =========
+def should_ignore(path):
+    parts = path.split(os.sep)
+
+    for part in parts:
+        if part in ignore_dirs:
+            return True
+
+    return False
+
+
+# ========= WRITE OUTPUT =========
+with open(output_file, "w", encoding="utf-8") as out:
+
+    out.write("=" * 100 + "\n")
+    out.write("PROJECT STRUCTURE\n")
+    out.write("=" * 100 + "\n\n")
+
+    # ---------- Folder Structure ----------
+    for root, dirs, files in os.walk(project_path):
+
+        # skip ignored folders
+        if should_ignore(root):
+            continue
+
+        # remove ignored dirs from traversal
+        dirs[:] = [d for d in dirs if d not in ignore_dirs]
+
+        level = root.replace(project_path, "").count(os.sep)
+        indent = "│   " * level
+
+        folder_name = os.path.basename(root)
+
+        if level == 0:
+            out.write(f"📁 {folder_name}\n")
+        else:
+            out.write(f"{indent}📁 {folder_name}\n")
+
+        sub_indent = "│   " * (level + 1)
+
+        for file in files:
+
+            ext = os.path.splitext(file)[1]
+
+            # only show selected files
+            if ext in allowed_extensions:
+                out.write(f"{sub_indent}📄 {file}\n")
+
+    # ---------- Source Code ----------
+    out.write("\n\n")
+    out.write("=" * 100 + "\n")
+    out.write("SOURCE CODE\n")
+    out.write("=" * 100 + "\n\n")
+
+    for root, dirs, files in os.walk(project_path):
+
+        if should_ignore(root):
+            continue
+
+        dirs[:] = [d for d in dirs if d not in ignore_dirs]
+
+        for file in files:
+
+            ext = os.path.splitext(file)[1]
+
+            # skip unwanted file types
+            if ext not in allowed_extensions:
+                continue
+
+            file_path = os.path.join(root, file)
+
+            out.write("\n" + "=" * 100 + "\n")
+            out.write(f"FILE: {file_path}\n")
+            out.write("=" * 100 + "\n\n")
+
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+
+                    # skip empty files
+                    if content.strip():
+                        out.write(content)
+                    else:
+                        out.write("[EMPTY FILE]")
+
+            except Exception as e:
+                out.write(f"ERROR READING FILE:\n{e}")
+
+            out.write("\n\n")
+
+print("\n✅ Done!")
+print(f"📄 Output saved to:\n{output_file}")
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\main.py
+====================================================================================================
+
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI()
+
+app.mount(
+    "/static",
+    StaticFiles(directory="app/static"),
+    name="static"
+)
+
+@app.get('/')
+async def home():
+    return FileResponse(
+        'app/template/index.html'
+    )
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\static\script.js
+====================================================================================================
+
+[EMPTY FILE]
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\static\style.css
+====================================================================================================
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+
+    font-family:Arial,sans-serif;
+
+    background:#f1f5f9;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    height:100vh;
+
+}
+
+
+.container{
+
+    width:900px;
+
+    height:90vh;
+
+    background:white;
+
+    border-radius:20px;
+
+    box-shadow:
+    0 10px 30px
+    rgba(0,0,0,.1);
+
+    display:flex;
+
+    flex-direction:column;
+
+    overflow:hidden;
+}
+
+
+
+/* HEADER */
+
+.header{
+
+    padding:25px;
+
+    border-bottom:
+    1px solid #eee;
+
+    text-align:center;
+}
+
+
+.header h1{
+
+    color:#2563eb;
+
+    margin-bottom:10px;
+}
+
+
+.header p{
+
+    color:#6b7280;
+}
+
+
+
+
+/* STATUS */
+
+.status-box{
+
+    margin:15px;
+
+    background:#f3f4f6;
+
+    padding:12px;
+
+    border-radius:10px;
+
+    text-align:center;
+
+    font-weight:bold;
+}
+
+
+
+
+/* CHAT */
+
+.chat-container{
+
+    flex:1;
+
+    padding:20px;
+
+    overflow-y:auto;
+
+    background:#fafafa;
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:15px;
+}
+
+
+
+/* MESSAGES */
+
+.message{
+
+    max-width:75%;
+
+    padding:14px;
+
+    border-radius:14px;
+
+    line-height:1.5;
+
+    word-wrap:break-word;
+}
+
+
+.ai-message{
+
+    align-self:flex-start;
+
+    background:white;
+
+    border:
+    1px solid #e5e7eb;
+}
+
+
+
+.user-message{
+
+    align-self:flex-end;
+
+    background:#2563eb;
+
+    color:white;
+}
+
+
+
+
+/* INPUT */
+
+.input-section{
+
+    padding:20px;
+
+    border-top:
+    1px solid #eee;
+
+    display:flex;
+
+    gap:10px;
+
+    background:white;
+}
+
+
+
+#question-input{
+
+    flex:1;
+
+    resize:none;
+
+    border:
+    1px solid #d1d5db;
+
+    border-radius:12px;
+
+    padding:15px;
+
+    font-size:15px;
+
+    outline:none;
+}
+
+
+#question-input:focus{
+
+    border-color:#2563eb;
+}
+
+
+
+#send-btn{
+
+    width:120px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:#2563eb;
+
+    color:white;
+
+    cursor:pointer;
+
+    font-weight:bold;
+
+    transition:.3s;
+}
+
+
+#send-btn:hover{
+
+    opacity:.9;
+}
+
+
+#send-btn:disabled{
+
+    opacity:.6;
+
+    cursor:not-allowed;
+}
+
+
+
+/* SCROLLBAR */
+
+::-webkit-scrollbar{
+
+    width:8px;
+}
+
+
+::-webkit-scrollbar-thumb{
+
+    background:#d1d5db;
+
+    border-radius:10px;
+}
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\template\index.html
+====================================================================================================
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIU Admission Chatbot</title>
+
+    <link rel="stylesheet" href="app/static/style.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>DIU Admission Chatbot</h1>
+
+        </div>
+        <!-- status -->
+        <div id="bot_status" class="status_box">
+
+            knowledge Base is ready
+        </div>
+
+        <div class="chat-container" id="chat-container">
+            <div class="message ai-message">
+                Hello 👋 <br><br>
+
+                Welcome to DIU Admission Assistant
+
+                Ask your Question
+
+            </div>
+
+        </div>
+
+        <div class="input-section">
+            <textarea 
+                name="question-input" 
+                id="question-input" 
+                placeholder="Ask a question" 
+                rows="2">
+            </textarea>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>
+
