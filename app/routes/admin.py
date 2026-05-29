@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File
 import shutil
 import os
-from app.rag.update_rag import update_rag
+from app.rag.ingest import update_rag
 from fastapi.responses import FileResponse
 
 router = APIRouter(
