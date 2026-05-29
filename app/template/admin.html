@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        DIU Admin Panel
+    </title>
+
+    <link
+    rel="stylesheet"
+    href="/static/admin.css"
+    >
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <h1>
+            DIU Admission Admin
+        </h1>
+
+        <p class="subtitle">
+            Upload a new PDF and update the RAG knowledge base
+        </p>
+
+        <div class="upload-section">
+
+            <input
+            type="file"
+            id="pdf"
+            accept=".pdf"
+            >
+
+            <button
+            class="upload-btn"
+            onclick="uploadPDF()"
+            >
+
+                Upload PDF
+
+            </button>
+
+        </div>
+
+
+        <div class="update-section">
+
+            <button
+            class="update-btn"
+            onclick="updateRAG()"
+            >
+
+                Update RAG
+
+            </button>
+
+        </div>
+
+
+        <div class="update-section">
+
+            <button
+            class="upload-btn"
+            onclick="window.open('/admin/seePDF', '_blank')"
+            >
+
+                See PDF
+
+            </button>
+
+        </div>
+
+
+        <div
+        id="message"
+        class="message"
+        >
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="/static/admin.js"></script>
+
+</body>
+
+</html>

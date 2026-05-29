@@ -4,14 +4,32 @@ PROJECT STRUCTURE
 
 📁 test1
 │   📄 project_dump.txt
+│   📄 README.md
 │   📄 requirements.txt
 │   📄 test.py
 │   📁 app
 │   │   📄 main.py
+│   │   📁 data
+│   │   │   📁 faiss_index
+│   │   📁 model
+│   │   │   📄 models.py
+│   │   📁 rag
+│   │   │   📄 retriver.py
+│   │   │   📄 update_rag.py
+│   │   📁 routes
+│   │   │   📄 admin.py
+│   │   │   📄 routes.py
+│   │   📁 service
+│   │   │   📄 chat.py
+│   │   │   📄 common_query.py
+│   │   │   📄 prompt_template.py
 │   │   📁 static
+│   │   │   📄 admin.css
+│   │   │   📄 admin.js
 │   │   │   📄 script.js
 │   │   │   📄 style.css
 │   │   📁 template
+│   │   │   📄 admin.html
 │   │   │   📄 index.html
 
 
@@ -28,20 +46,19 @@ FILE: D:\My projects\test1\project_dump.txt
 
 
 ====================================================================================================
+FILE: D:\My projects\test1\README.md
+====================================================================================================
+
+Added
+
+
+
+====================================================================================================
 FILE: D:\My projects\test1\requirements.txt
 ====================================================================================================
 
-fastapi
-uvicorn
-langchain
-langchain-openai
-langchain-community
-faiss-cpu
-pypdf
-python-dotenv
-tiktoken
-openai
-python-multipart
+ERROR READING FILE:
+'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
 
 
 ====================================================================================================
@@ -186,6 +203,9 @@ FILE: D:\My projects\test1\app\main.py
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from app.routes.admin import router as admin_router
+from app.routes.routes import router as chat_router
+
 
 app = FastAPI()
 
@@ -195,22 +215,448 @@ app.mount(
     name="static"
 )
 
+app.include_router(
+    admin_router
+)
+
+app.include_router(
+    chat_router,
+)
+
 @app.get('/')
 async def home():
     return FileResponse(
         'app/template/index.html'
     )
+    
+@app.get("/admin")
+async def admin():
+       return FileResponse(
+           "app/template/admin.html"
+       ) 
+
 
 
 ====================================================================================================
-FILE: D:\My projects\test1\app\static\script.js
+FILE: D:\My projects\test1\app\model\models.py
 ====================================================================================================
 
-[EMPTY FILE]
+from langchain_openai import (
+    ChatOpenAI,
+    OpenAIEmbeddings
+)
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+base_url = os.getenv(
+    "OPENAI_BASE_URL"
+)
+
+api_key = os.getenv(
+    "OPENAI_API_KEY"
+)
+
+
+chat_model = ChatOpenAI(
+    model='gpt-4o-mini',
+    base_url=base_url,
+    api_key=api_key
+)
+
+embeddings = OpenAIEmbeddings(
+    model='text-embedding-3-small',
+    base_url=base_url,
+    api_key=api_key
+)
 
 
 ====================================================================================================
-FILE: D:\My projects\test1\app\static\style.css
+FILE: D:\My projects\test1\app\rag\retriver.py
+====================================================================================================
+
+from langchain_community.vectorstores import FAISS
+from app.model.models import embeddings
+
+def retriver(query):
+    db = FAISS.load_local(
+        "app/data/faiss_index",
+        embeddings,
+        allow_dangerous_deserialization=True
+    )
+    
+    docs = db.similarity_search(
+        query,
+        k = 1
+    )
+    return docs
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\rag\update_rag.py
+====================================================================================================
+
+from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_community.vectorstores import FAISS
+from app.model.models import embeddings
+import os
+import shutil
+
+def update_rag():
+    pdf_path = "app/data/rag.pdf"
+    vector_path = "app/data/faiss_index"
+    
+    if not os.path.exists(pdf_path):
+        raise Exception("Rag.pdf not found")
+    
+    if os.path.exists(vector_path):
+        shutil.rmtree(vector_path)
+    
+    loader = PyMuPDFLoader(pdf_path)
+    
+    pages = loader.load()
+    
+    print("Creating Embeddings...")
+    
+    db = FAISS.from_documents(
+        pages,
+        embeddings
+    )
+    
+    db.save_local(vector_path)
+    
+    # print("RAG updated Successfully..")
+    
+    return os.path.exists(vector_path)
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\routes\admin.py
+====================================================================================================
+
+from fastapi import APIRouter, UploadFile, File
+import shutil
+import os
+from app.rag.update_rag import update_rag
+from fastapi.responses import FileResponse
+
+router = APIRouter(
+    prefix="/admin"
+)
+
+@router.post("/upload")
+async def upload_pdf(
+    file: UploadFile = File(...)):
+    
+    save_path= "app/data/rag.pdf"
+    
+    if os.path.exists(save_path):
+        os.remove(save_path)
+        
+    with open(
+        save_path,
+        "wb"
+    ) as buffer:
+        
+        shutil.copyfileobj(
+            file.file,
+            buffer
+        )
+        
+    return{
+        'success': True,
+        'message': "Uploaded",
+    }
+
+@router.post('/update-rag')
+async def update():
+    update_rag()
+    return {
+        'success': True,
+        'message': 'Rag updated Successfully'
+    }
+
+@router.get("/seePDF")
+async def see_pdf():
+    pdf_path = "app/data/rag.pdf"
+    
+    if not os.path.exists(pdf_path):
+        return {
+            # 'success': False,
+            # 'message': 'No pdf found'
+            'No PDF Exist'
+        }
+
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf"
+    )
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\routes\routes.py
+====================================================================================================
+
+from fastapi import APIRouter
+from pydantic import BaseModel
+from app.service.common_query import common_query
+from app.service.chat import question_answer
+from app.rag.update_rag import update_rag
+
+router = APIRouter()
+
+class Query(BaseModel):
+    query: str
+
+@router.post("/ask")
+async def ask(data: Query):
+    query = data.query.lower().strip()
+    
+    result = common_query(query)
+    
+    if result['success']:
+        return{
+            'success': True,
+            'answer': result["answer"]
+        }
+    else:
+        if not update_rag:
+            async def update():
+                update_rag()
+        
+        response = question_answer(query)
+        
+        if response.get("success"):
+            return{
+                "success": True,
+                "answer": response.get('answer')
+            }
+        
+        return{
+            'success': False,
+            'answer': 'Failed to answer'
+        }
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\service\chat.py
+====================================================================================================
+
+from app.rag.retriver import retriver
+from langchain_core.prompts import PromptTemplate
+from app.model.models import chat_model
+
+
+def question_answer(query):
+    context = retriver(query)
+
+    prompt_template = PromptTemplate(
+        template="""
+You are a helpful admission assistant for DIU Admission Chatbot.
+
+Answer only from the provided context.
+
+If the context is insufficient, say:
+"I don't have enough information to answer that question."
+
+Context:
+{context}
+
+Question:
+{query}
+""",
+        input_variables=["context", "query"]
+    )
+
+    formatted_prompt = prompt_template.format(
+        context=context,
+        query=query
+    )
+
+    response = chat_model.invoke(formatted_prompt)
+
+    return {
+        "success": True,
+        "answer": response.content
+    }
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\service\common_query.py
+====================================================================================================
+
+query = {
+
+    "hi":
+    "👋 Hello! How can I help you today?",
+
+    "hello":
+    "👋 Hello! How can I help you today?",
+
+    "hey":
+    "👋 Hello! How can I help you today?",
+
+    "good morning":
+    "☀️ Good morning! How can I help you today?",
+
+    "good afternoon":
+    "🌤️ Good afternoon! How can I help you today?",
+
+    "good evening":
+    "🌙 Good evening! How can I help you today?",
+
+    "how are you":
+    "😄 I'm doing well! How can I help you today?",
+
+    "how are u":
+    "😄 I'm doing well! How can I help you today?",
+
+    "how r u":
+    "😄 I'm doing well! How can I help you today?",
+
+    "who are you":
+    "🤖 I am the DIU Admission Assistant.",
+
+    "what are you":
+    "🎓 I am a chatbot designed to help with DIU information.",
+
+    "who made you":
+    "🛠️ I was built to assist with DIU admission queries.",
+
+    "what can you do":
+    "📚 I can answer questions about admissions, departments, credits, fees and scholarships.",
+
+    "help":
+    "❓ Ask me anything related to DIU admissions.",
+    
+    "help me":
+    "❓ Ask me anything related to DIU admissions.",
+
+    "thanks":
+    "😊 You're welcome!",
+
+    "thank you":
+    "😊 You're welcome!",
+
+    "thx":
+    "😊 You're welcome!",
+    
+    "thnx":
+    "😊 You're welcome!",
+
+    "ok":
+    "👍 Alright!",
+
+    "bye":
+    "👋 Goodbye! Have a great day!",
+
+    "see you":
+    "👋 See you again!",
+
+    "goodbye":
+    "👋 Goodbye!",
+
+    "nice":
+    "😄 Glad you liked it!",
+
+    "awesome":
+    "✨ Happy to hear that!",
+
+    "great":
+    "🎉 That's great!",
+}
+
+
+toall_keywords = [
+    "hi",
+    
+    "hello",
+    
+    "hey",
+
+    "toall",
+
+    "start",
+
+    "begin",
+
+    "help",
+
+    "admission",
+
+    "apply",
+
+    "get started",
+
+    "new here",
+
+    "start admission",
+
+    "guide me",
+
+    "i need help",
+    
+    "need help",
+
+    "where do i start"
+
+]
+
+to_all = (
+    " To guide you better, please share your SSC & HSC results "
+    "or the department you're interested in."
+)
+
+def common_query(user_query: str):
+
+    answer = query.get(
+        user_query,
+        ""
+    )
+
+    if user_query in toall_keywords:
+        
+        print(answer)
+        
+        if answer == "":
+            answer = to_all
+        else:
+            answer += (
+                "\n\n" + to_all
+            )
+
+    return{
+        "success": True if len(answer) > 0 else False,
+        "answer": answer
+    }
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\service\prompt_template.py
+====================================================================================================
+
+from langchain_core.prompts import PromptTemplate
+
+prompt = PromptTemplate(
+    template="""
+    You are a helpful admission assistant for diu admission chatbot.
+    Answer only from the provided context.
+    
+    if the context is insufficient, just say you dont have enough information.
+    
+    Context:{context}
+    Question:{question}
+    """,
+    input_variables=[
+        "context",
+        "question"
+    ]
+)
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\static\admin.css
 ====================================================================================================
 
 *{
@@ -231,18 +677,26 @@ body{
 
     align-items:center;
 
-    height:100vh;
-
+    min-height:100vh;
 }
-
 
 .container{
 
-    width:900px;
+    width:100%;
 
-    height:90vh;
+    display:flex;
+
+    justify-content:center;
+}
+
+
+.card{
+
+    width:500px;
 
     background:white;
+
+    padding:40px;
 
     border-radius:20px;
 
@@ -250,55 +704,116 @@ body{
     0 10px 30px
     rgba(0,0,0,.1);
 
-    display:flex;
-
-    flex-direction:column;
-
-    overflow:hidden;
 }
 
 
-
-/* HEADER */
-
-.header{
-
-    padding:25px;
-
-    border-bottom:
-    1px solid #eee;
+h1{
 
     text-align:center;
-}
-
-
-.header h1{
-
-    color:#2563eb;
 
     margin-bottom:10px;
+
+    color:#111827;
 }
 
 
-.header p{
+.subtitle{
+
+    text-align:center;
+
+    margin-bottom:35px;
 
     color:#6b7280;
 }
 
 
+.upload-section{
+
+    margin-bottom:20px;
+}
 
 
-/* STATUS */
+.update-section{
 
-.status-box{
+    margin-top:10px;
+}
 
-    margin:15px;
+
+input[type=file]{
+
+    width:100%;
+
+    padding:14px;
+
+    margin-bottom:20px;
+
+    border:2px dashed #cbd5e1;
+
+    border-radius:10px;
+
+    cursor:pointer;
+}
+
+
+button{
+
+    width:100%;
+
+    padding:15px;
+
+    border:none;
+
+    border-radius:10px;
+
+    font-size:16px;
+
+    font-weight:bold;
+
+    cursor:pointer;
+
+    transition:.3s;
+}
+
+
+.upload-btn{
+
+    background:#2563eb;
+
+    color:white;
+}
+
+
+.upload-btn:hover{
+
+    opacity:.9;
+}
+
+
+.update-btn{
+
+    background:#16a34a;
+
+    color:white;
+}
+
+
+.update-btn:hover{
+
+    opacity:.9;
+}
+
+
+.message{
+
+    margin-top:25px;
+
+    padding:15px;
+
+    border-radius:10px;
 
     background:#f3f4f6;
 
-    padding:12px;
-
-    border-radius:10px;
+    display:none;
 
     text-align:center;
 
@@ -306,64 +821,478 @@ body{
 }
 
 
+====================================================================================================
+FILE: D:\My projects\test1\app\static\admin.js
+====================================================================================================
+
+const messageBox =
+document.getElementById(
+    "message"
+)
+
+const fileInput =
+document.getElementById(
+    "pdf"
+)
+
+const uploadBtn =
+document.querySelector(
+    ".upload-btn"
+)
+
+const updateBtn =
+document.querySelector(
+    ".update-btn"
+)
+
+
+
+function showMessage(text){
+
+    messageBox.style.display =
+    "block"
+
+    messageBox.innerText =
+    text
+}
+
+
+
+async function uploadPDF(){
+
+    const file =
+    fileInput.files[0]
+
+
+    if(!file){
+
+        showMessage(
+            "Please select PDF"
+        )
+
+        return
+    }
+
+
+    let formData =
+    new FormData()
+
+    formData.append(
+        "file",
+        file
+    )
+
+
+    try{
+
+        uploadBtn.disabled =
+        true
+
+        uploadBtn.innerText =
+        "Uploading..."
+
+
+        showMessage(
+            "Uploading PDF..."
+        )
+
+
+        const response =
+        await fetch(
+            "/admin/upload",
+            {
+                method:"POST",
+                body:formData
+            }
+        )
+
+        const data =
+        await response.json()
+
+        showMessage(
+            data.message
+        )
+
+
+        fileInput.value = ""
+
+    }
+
+    catch(error){
+
+        showMessage(
+            "Upload failed"
+        )
+
+    }
+
+    finally{
+
+        uploadBtn.disabled =
+        false
+
+        uploadBtn.innerText =
+        "Upload PDF"
+
+    }
+
+}
+
+
+
+async function updateRAG(){
+
+    try{
+
+        updateBtn.disabled =
+        true
+
+        updateBtn.innerText =
+        "Updating..."
+
+
+        showMessage(
+            "Updating RAG..."
+        )
+
+
+        const response =
+        await fetch(
+            "/admin/update-rag",
+            {
+                method:"POST"
+            }
+        )
+
+
+        const data =
+        await response.json()
+
+
+        showMessage(
+            data.message
+        )
+
+    }
+
+    catch(error){
+
+        showMessage(
+            "Update failed"
+        )
+
+    }
+
+    finally{
+
+        updateBtn.disabled =
+        false
+
+        updateBtn.innerText =
+        "Update RAG"
+
+    }
+
+}
+
+async function seePDF(){
+
+    try{
+
+        showMessage(
+            "Loading PDF..."
+        )
+
+
+        const response =
+        await fetch(
+            "/admin/seePDF",
+            {
+                method:"GET"
+            }
+        )
+
+
+        const data =
+        await response.json()
+
+
+        console.log(data)
+
+        showMessage(
+            data.message
+        )
+
+    }
+
+    catch(error){
+
+        showMessage(
+            "See PDF failed"
+        )
+
+    }
+
+}
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\static\script.js
+====================================================================================================
+
+const sendBtn =
+    document.getElementById("send-btn")
+
+const questionInput =
+    document.getElementById("question-input")
+
+const chatContainer =
+    document.getElementById("chat-container")
+
+function scrollToButtom() {
+    chatContainer.scrollTop = chatContainer.scrollHeight
+}
+
+
+function createMessage(text, type) {
+    const message = document.createElement('div')
+    message.classList.add("message", type)
+    message.textContent = text
+    console.log(message)
+    return message
+}
+
+questionInput.addEventListener(
+    "keydown",
+    function(event) {
+        if (
+            event.key === "Enter" && !event.shiftKey
+        ) {
+            event.preventDefault()
+            sendBtn.click()
+        }
+    }
+)
+
+sendBtn.addEventListener(
+    "click",
+    async()=>{
+        const question = questionInput.value.trim()
+
+        if(!question){
+            return;
+        }
+
+        const userMessage = createMessage(
+            question, 
+            "user-message"
+        )
+
+        chatContainer.appendChild(userMessage)
+        
+        const aiMessage = createMessage(
+            "Thinking...",
+            "ai-message"
+        )
+        chatContainer.appendChild(aiMessage)
+
+        questionInput.value=""
+
+        scrollToButtom()
+
+        sendBtn.disabled = true
+        sendBtn.innerText="Sending..."
+
+
+        try{
+            const response=await fetch(
+                "/ask",
+                {
+                    method:"POST",
+                    headers:{
+                        "content-type":"application/json"
+                    },
+
+                    body:JSON.stringify({
+                        query:question
+                    })
+                }
+            )
+
+            const data = await response.json()
+
+            if(data.success){
+                aiMessage.textContent=data.answer
+                console.log(data)
+            }
+            else{
+                aiMessage.textContent="❌ "+data.message
+                console.log(data)
+            }
+
+        }
+        catch(error){
+            console.log(error)
+            aiMessage.textContent= "❌ Something went wrong"
+        }
+
+        finally{
+            sendBtn.disabled=false
+            sendBtn.innerText="Send"
+
+            scrollToButtom()
+        }
+    }
+)
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\static\style.css
+====================================================================================================
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+
+    font-family: Arial, sans-serif;
+
+    background: #f1f5f9;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    height: 100vh;
+
+}
+
+.container {
+
+    width: 900px;
+
+    height: 90vh;
+
+    background: white;
+
+    border-radius: 20px;
+
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, .1);
+
+    display: flex;
+
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+/* HEADER */
+
+.header {
+
+    padding: 25px;
+
+    border-bottom:
+        1px solid #eee;
+
+    text-align: center;
+}
+
+
+.header h1 {
+
+    color: #2563eb;
+
+    margin-bottom: 10px;
+}
+
+
+.header p {
+
+    color: #6b7280;
+}
+
+
+/* STATUS */
+
+.status-box {
+
+    margin: 15px;
+
+    background: #f3f4f6;
+
+    padding: 12px;
+
+    border-radius: 10px;
+
+    text-align: center;
+
+    font-weight: bold;
+}
 
 
 /* CHAT */
 
-.chat-container{
+.chat-container {
 
-    flex:1;
+    flex: 1;
 
-    padding:20px;
+    padding: 20px;
 
-    overflow-y:auto;
+    overflow-y: auto;
 
-    background:#fafafa;
+    background: #fafafa;
 
-    display:flex;
+    display: flex;
 
-    flex-direction:column;
+    flex-direction: column;
 
-    gap:15px;
+    gap: 15px;
 }
-
-
 
 /* MESSAGES */
 
-.message{
+.message {
 
-    max-width:75%;
+    max-width: 75%;
 
-    padding:14px;
+    padding: 14px;
 
-    border-radius:14px;
+    border-radius: 14px;
 
-    line-height:1.5;
+    line-height: 1.5;
 
-    word-wrap:break-word;
+    white-space: pre-line;
+
+    word-wrap: break-word;
 }
 
 
-.ai-message{
+.ai-message {
 
-    align-self:flex-start;
+    align-self: flex-start;
 
-    background:white;
+    background: white;
 
     border:
-    1px solid #e5e7eb;
+        1px solid #e5e7eb;
 }
 
 
 
-.user-message{
+.user-message {
 
-    align-self:flex-end;
+    align-self: flex-end;
 
-    background:#2563eb;
+    background: #2563eb;
 
-    color:white;
+    color: white;
 }
 
 
@@ -371,97 +1300,204 @@ body{
 
 /* INPUT */
 
-.input-section{
+.input-section {
 
-    padding:20px;
+    padding: 20px;
 
     border-top:
-    1px solid #eee;
+        1px solid #eee;
 
-    display:flex;
+    display: flex;
 
-    gap:10px;
+    gap: 10px;
 
-    background:white;
+    background: white;
 }
 
 
 
-#question-input{
+#question-input {
 
-    flex:1;
+    flex: 1;
 
-    resize:none;
+    resize: none;
 
     border:
-    1px solid #d1d5db;
+        1px solid #d1d5db;
 
-    border-radius:12px;
+    border-radius: 12px;
 
-    padding:15px;
+    padding: 15px;
 
-    font-size:15px;
+    font-size: 15px;
 
-    outline:none;
+    outline: none;
 }
 
 
-#question-input:focus{
+#question-input:focus {
 
-    border-color:#2563eb;
+    border-color: #2563eb;
 }
 
 
 
-#send-btn{
+#send-btn {
 
-    width:120px;
+    width: 120px;
 
-    border:none;
+    border: none;
 
-    border-radius:12px;
+    border-radius: 12px;
 
-    background:#2563eb;
+    background: #2563eb;
 
-    color:white;
+    color: white;
 
-    cursor:pointer;
+    cursor: pointer;
 
-    font-weight:bold;
+    font-weight: bold;
 
-    transition:.3s;
+    transition: .3s;
 }
 
 
-#send-btn:hover{
+#send-btn:hover {
 
-    opacity:.9;
+    opacity: .9;
 }
 
 
-#send-btn:disabled{
+#send-btn:disabled {
 
-    opacity:.6;
+    opacity: .6;
 
-    cursor:not-allowed;
+    cursor: not-allowed;
 }
 
 
 
 /* SCROLLBAR */
 
-::-webkit-scrollbar{
+::-webkit-scrollbar {
 
-    width:8px;
+    width: 8px;
 }
 
 
-::-webkit-scrollbar-thumb{
+::-webkit-scrollbar-thumb {
 
-    background:#d1d5db;
+    background: #d1d5db;
 
-    border-radius:10px;
+    border-radius: 10px;
 }
+
+
+====================================================================================================
+FILE: D:\My projects\test1\app\template\admin.html
+====================================================================================================
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        DIU Admin Panel
+    </title>
+
+    <link
+    rel="stylesheet"
+    href="/static/admin.css"
+    >
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <h1>
+            DIU Admission Admin
+        </h1>
+
+        <p class="subtitle">
+            Upload a new PDF and update the RAG knowledge base
+        </p>
+
+        <div class="upload-section">
+
+            <input
+            type="file"
+            id="pdf"
+            accept=".pdf"
+            >
+
+            <button
+            class="upload-btn"
+            onclick="uploadPDF()"
+            >
+
+                Upload PDF
+
+            </button>
+
+        </div>
+
+
+        <div class="update-section">
+
+            <button
+            class="update-btn"
+            onclick="updateRAG()"
+            >
+
+                Update RAG
+
+            </button>
+
+        </div>
+
+
+        <div class="update-section">
+
+            <button
+            class="upload-btn"
+            onclick="window.open('/admin/seePDF', '_blank')"
+            >
+
+                See PDF
+
+            </button>
+
+        </div>
+
+
+        <div
+        id="message"
+        class="message"
+        >
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="/static/admin.js"></script>
+
+</body>
+
+</html>
 
 
 ====================================================================================================
@@ -476,7 +1512,7 @@ FILE: D:\My projects\test1\app\template\index.html
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DIU Admission Chatbot</title>
 
-    <link rel="stylesheet" href="app/static/style.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
@@ -487,18 +1523,16 @@ FILE: D:\My projects\test1\app\template\index.html
 
         </div>
         <!-- status -->
-        <div id="bot_status" class="status_box">
+        <div id="bot-status" class="status-box">
 
             knowledge Base is ready
         </div>
 
         <div class="chat-container" id="chat-container">
             <div class="message ai-message">
-                Hello 👋 <br><br>
+                Hello 👋 
 
-                Welcome to DIU Admission Assistant
-
-                Ask your Question
+                Welcome to DIU Admission Assistant. Ask your Question
 
             </div>
 
@@ -506,15 +1540,21 @@ FILE: D:\My projects\test1\app\template\index.html
 
         <div class="input-section">
             <textarea 
-                name="question-input" 
-                id="question-input" 
-                placeholder="Ask a question" 
-                rows="2">
-            </textarea>
+                id="question-input"
 
+                placeholder=
+                "Ask a question..." 
+                rows="2"
+                
+            ></textarea>
+            
+            <button id="send-btn">
+                send
+            </button>
         </div>
-
     </div>
+
+    <script src="/static/script.js"></script>
 
 </body>
 

@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from app.routes.admin import router as admin_router
+from app.routes.routes import router as chat_router
+
 
 app = FastAPI()
 
@@ -10,12 +13,12 @@ app.mount(
     name="static"
 )
 
-from app.routes.chat import(
-    router as chat_router
+app.include_router(
+    admin_router
 )
 
 app.include_router(
-    chat_router
+    chat_router,
 )
 
 @app.get('/')
@@ -24,9 +27,8 @@ async def home():
         'app/template/index.html'
     )
     
-# @app.post('/askk')
-# def d(data: dict):
-#     return {
-#         'success': True,
-#         'answer': 'Inside askk'
-#     }
+@app.get("/admin")
+async def admin():
+       return FileResponse(
+           "app/template/admin.html"
+       ) 
