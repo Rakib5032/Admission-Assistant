@@ -34,3 +34,6 @@ Thumbs.db
 # Build Files
 dist/
 build/
+
+project_dump.txt
+test.py
