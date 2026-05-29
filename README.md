@@ -3,7 +3,7 @@
 A Retrieval-Augmented Generation (RAG) based chatbot designed to answer admission-related questions using information extracted from university documents. The system allows administrators to upload admission PDFs, generate embeddings, and provide context-aware responses through a Large Language Model (LLM).
 
 ---
-![alt text](image.png)
+![alt text](Demo_chat.png)
 ## Overview
 
 The chatbot uses a RAG pipeline to ensure responses are generated from the uploaded admission document rather than relying solely on the model's general knowledge.
