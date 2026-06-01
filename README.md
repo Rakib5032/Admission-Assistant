@@ -2,6 +2,8 @@
 
 A Retrieval-Augmented Generation (RAG) based chatbot designed to answer admission-related questions using information extracted from university documents. The system allows administrators to upload admission PDFs, generate embeddings, and provide context-aware responses through a Large Language Model (LLM).
 
+🚀 Live Demo: https://diu-admission-chatbot.onrender.com/
+
 ---
 ![alt text](Demo_chat.png)
 ## Overview
